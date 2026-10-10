@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muji · Desktop Pom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6ecdb; --paper: #fbf4e8; --ink: #4e2c1a; --muted: #8a6a52;
+    --ginger: #d9843f; --cream: #f6d4a0; --line: #e6d3b6; --floor: #ead8bb;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.6 Nunito, system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+  main { max-width: 640px; margin: 0 auto; padding: 56px 16px 220px; }
+  h1 { font-family: Silkscreen, monospace; font-weight: 400; font-size: 34px; line-height: 1.15; margin: 0 0 6px; letter-spacing: .5px; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin: 0 0 16px; }
+  .status { display: flex; gap: 14px; align-items: center; }
+  .status b { font-weight: 700; }
+  .meter { font-family: Silkscreen, monospace; color: var(--ginger); letter-spacing: 2px; }
+  h2 { font-family: Silkscreen, monospace; font-weight: 400; font-size: 15px; margin: 0 0 8px; color: var(--ginger); }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin: 2px 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px; }
+  pre { background: #f1e3cc; border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: 8px 0 0; }
+  .note { color: var(--muted); font-size: 14px; }
+  a { color: #b45f24; }
+  .floor { position: fixed; left: 0; right: 0; bottom: 0; height: 18px; background: var(--floor); border-top: 1px solid var(--line); }
+  canvas#pet { position: fixed; left: 0; bottom: 18px; pointer-events: none; image-rendering: pixelated; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  button {
+    font: 600 14px Nunito, sans-serif; color: var(--ink); background: #fff8ec;
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer;
+  }
+  button:hover { background: #fff; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff8ec; border-color: var(--ink); }
+  @media (max-width: 520px) { h1 { font-size: 26px; } main { padding-top: 32px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Muji · Desktop Pom</h1>
+  <p class="sub">A cosy pixel-art Pomeranian who lives along the bottom of your Mac screen. This page is a browser preview. He's down there now.</p>
+
+  <div class="card status" aria-live="polite">
+    <div><b id="doing">Muji is saying hi</b><br><span class="meter" id="energy">●●●●○</span> <span class="note">energy</span></div>
+  </div>
+
+  <div class="card">
+    <h2>What he does</h2>
+    <ul>
+      <li>Wanders, sniffs, sits, looks at you, yawns, stretches, and does the odd zoomies.</li>
+      <li>Gets tired and naps, curled up or belly-up. Sleepier in the evening, asleep 10:30pm–7am.</li>
+      <li>Step away for 5 minutes and he curls up. Come back and he stretches and says hi.</li>
+    </ul>
+    <div class="controls">
+      <button id="fast" aria-pressed="false">Speed up time ×20</button>
+      <button id="nap">Pretend I left</button>
+      <span class="note" style="align-self:center">then move the mouse to come back</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Get him on your Mac</h2>
+    <p class="note" style="margin:0">macOS 13+. Needs Xcode or the Command Line Tools (<code>xcode-select --install</code>).</p>
+<pre>cd source
+bash build.sh
+open build/PomPet.app</pre>
+    <p class="note" style="margin:8px 0 0">The overlay is click-through and shows on every Space. Paw icon in the menu bar: status, size, hide, walk on the Dock, open at login.</p>
+  </div>
+</main>
+<div class="floor"></div>
+<canvas id="pet"></canvas>
+
+<script>
+const SPRITES = __SPRITES__;
+const W = 48, H = 32;
+
+// ---- Brain: a direct port of source/Sources/Pet.swift ----
+const SPEC = {
+  walk:    { f: [0,1,2,3], d: [0.15,0.15,0.15,0.15] },
+  idle:    { f: [0,1,2,3], d: [0.9,0.35,0.9,0.16] },
+  sniff:   { f: [0,1], d: [0.26,0.26] },
+  look:    { f: [0,1,2,3], d: [1.4,0.45,1.6,0.18] },
+  sit:     { f: [0,1], d: [0.7,0.7] },
+  yawn:    { f: [0,1,2,3,0], d: [0.4,0.35,1.1,0.4,0.4], once: true },
+  stretch: { f: [0,1,0], d: [0.6,1.5,0.5], once: true },
+  zoomies: { f: [0,1,2], d: [0.08,0.08,0.08] },
+  lie:     { f: [0,1], d: [3.0,0.18] },
+  lieDrowsy: { f: [0,1], d: [1.0,1.4] },
+  sleep:   { f: [0,1], d: [1.2,1.2] },
+  belly:   { f: [0,1], d: [1.0,1.0] },
+};
+const rnd = (a, b) => a + Math.random() * (b - a);
+const act = (anim, o = {}) => ({ anim, duration: 3, speed: 0, targetX: null, drowsy: false, ...o });
+
+class Brain {
+  constructor(energy, x) {
+    this.x = x; this.facing = 1; this.energy = energy; this.anim = 'idle'; this.frame = 0;
+    this.sleepReason = null; this.pending = null;
+    this.minX = 0; this.maxX = 1000; this.scale = 3; this.hour = 12;
+    this.queue = []; this.elapsed = 0; this.step = 0; this.stepTime = 0;
+    this.rollTimer = 120; this.peekTimer = 1200;
+    this.begin(act('look', { duration: 4 }));
+  }
+  get asleep() { return this.anim === 'sleep' || this.anim === 'belly'; }
+  setBounds(lo, hi, s) { this.scale = s; this.minX = lo; this.maxX = Math.max(lo, hi); this.x = Math.min(Math.max(this.x, this.minX), this.maxX); }
+  spec() { return this.cur.anim === 'lie' && this.cur.drowsy ? SPEC.lieDrowsy : SPEC[this.cur.anim]; }
+
+  tick(rawDt, idle, h) {
+    const dt = Math.min(Math.max(rawDt, 0), 0.25);
+    this.hour = h;
+    const night = h >= 22.5 || h < 7, evening = h >= 19 && !night;
+    this.updateEnergy(dt, night, evening);
+    const sp = this.spec();
+    let finished = false;
+    this.stepTime += dt;
+    while (this.stepTime >= sp.d[this.step]) {
+      this.stepTime -= sp.d[this.step]; this.step++;
+      if (this.step >= sp.f.length) {
+        if (sp.once) { finished = true; this.step = sp.f.length - 1; this.stepTime = 0; break; }
+        this.step = 0;
+      }
+    }
+    this.frame = sp.f[this.step];
+    if (this.cur.speed > 0) {
+      this.x += this.facing * this.cur.speed * this.scale * dt;
+      if (this.x <= this.minX) { this.x = this.minX; this.facing = 1; if (this.cur.targetX !== null) finished = true; }
+      else if (this.x >= this.maxX) { this.x = this.maxX; this.facing = -1; if (this.cur.targetX !== null) finished = true; }
+      const t = this.cur.targetX;
+      if (t !== null && (this.facing > 0 ? this.x >= t : this.x <= t)) finished = true;
+    }
+    this.elapsed += dt;
+    if (!sp.once && this.elapsed >= this.cur.duration) finished = true;
+    if (this.react(idle, night, dt)) return;
+    if (finished) this.advance(night);
+  }
+
+  updateEnergy(dt, night, evening) {
+    let r;
+    switch (this.cur.anim) {
+      case 'sleep': case 'belly': r = night ? 0.0022 : 0.002; break;
+      case 'lie': r = 0.0002; break;
+      case 'walk': r = -0.0005; break;
+      case 'zoomies': r = -0.003; break;
+      default: r = -0.0002;
+    }
+    if (r < 0) { if (night) r *= 2.5; else if (evening) r *= 1.6; }
+    this.energy = Math.min(1, Math.max(0, this.energy + r * dt));
+  }
+
+  react(idle, night, dt) {
+    if (this.pending === 'away' && idle < 2) { this.wake(true); return true; }
+    if (!this.asleep) {
+      if (idle > 300 && this.pending === null) { this.goToSleep('away'); return true; }
+      return false;
+    }
+    switch (this.sleepReason) {
+      case 'away': if (idle < 2) { this.wake(true); return true; } break;
+      case 'tired':
+        if (night) this.sleepReason = 'night';
+        else if (idle > 300) this.sleepReason = 'away';
+        else if (this.energy >= 1) { this.wake(false); return true; }
+        break;
+      case 'night':
+        if (!night) {
+          if (idle > 60) this.sleepReason = 'away';
+          else { this.wake(true); return true; }
+        }
+        this.peekTimer -= dt;
+        if (this.peekTimer <= 0) {
+          this.peekTimer = rnd(900, 1800);
+          if (idle < 60 && this.energy > 0.9) { this.wake(true); return true; }
+        }
+        break;
+    }
+    this.rollTimer -= dt;
+    if (this.rollTimer <= 0) {
+      this.rollTimer = rnd(60, 180);
+      this.cur.anim = this.cur.anim === 'sleep' ? 'belly' : 'sleep';
+      this.anim = this.cur.anim; this.step = 0; this.stepTime = 0; this.frame = 0;
+    }
+    return false;
+  }
+
+  advance(night) { if (this.queue.length) this.begin(this.queue.shift()); else this.chooseNext(night); }
+  start(list) { this.queue = list.slice(1); this.begin(list[0]); }
+  begin(a) {
+    this.cur = a; this.anim = a.anim; this.elapsed = 0; this.step = 0; this.stepTime = 0;
+    this.frame = this.spec().f[0];
+    if (a.targetX !== null) this.facing = a.targetX >= this.x ? 1 : -1;
+    if (a.anim === 'sleep' || a.anim === 'belly') {
+      this.sleepReason = this.pending || 'tired'; this.pending = null;
+      this.rollTimer = rnd(60, 180); this.peekTimer = rnd(900, 1800);
+    }
+  }
+  goToSleep(reason) {
+    this.pending = reason;
+    this.start([act('yawn'), act('lie', { duration: 4, drowsy: true }),
+                act(Math.random() < 0.25 ? 'belly' : 'sleep', { duration: Infinity })]);
+  }
+  wake(greet) {
+    if (greet) this.energy = Math.max(this.energy, 0.35);
+    this.sleepReason = null; this.pending = null;
+    this.start([act('lie', { duration: 1.6 }), act('stretch'),
+                greet ? act('look', { duration: rnd(4, 7) }) : act('idle', { duration: 2 })]);
+  }
+  chooseNext(night) {
+    if (night) return this.goToSleep('night');
+    if (this.energy < 0.2) return this.goToSleep('tired');
+    const low = this.energy < 0.45;
+    let opts = [['walk',32],['idle',14],['sniff',10],['sit',14],['look',10],['lie', low ? 16 : 7],['stretch',3]];
+    if (low) opts.push(['yawn', 4]);
+    if (this.energy > 0.65 && this.hour >= 8 && this.hour < 20) opts.push(['zoomies', 2]);
+    opts = opts.filter(([a]) => a !== this.anim || a === 'walk');
+    let r = Math.random() * opts.reduce((s, o) => s + o[1], 0), pick = 'walk';
+    for (const [a, w] of opts) { if (r < w) { pick = a; break; } r -= w; }
+    switch (pick) {
+      case 'walk': return this.start([act('walk', { duration: 60, speed: 9, targetX: this.walkTarget() })]);
+      case 'idle': return this.start([act('idle', { duration: rnd(2, 5) })]);
+      case 'sniff': return this.start([act('sniff', { duration: rnd(1.5, 4) })]);
+      case 'sit': {
+        const l = [act('sit', { duration: rnd(4, 10) })];
+        if (Math.random() < 0.4) l.push(act('look', { duration: rnd(3, 6) }));
+        return this.start(l);
+      }
+      case 'look': return this.start([act('look', { duration: rnd(3, 7) })]);
+      case 'lie':
+        if (this.energy < 0.3) {
+          this.pending = 'tired';
+          return this.start([act('lie', { duration: rnd(6, 12), drowsy: true }), act('sleep', { duration: Infinity })]);
+        }
+        return this.start([act('lie', { duration: rnd(6, 15) })]);
+      case 'stretch': return this.start([act('stretch')]);
+      case 'yawn': return this.start([act('yawn'), act('sit', { duration: rnd(3, 5) })]);
+      case 'zoomies':
+        this.facing = Math.random() < 0.5 ? 1 : -1;
+        return this.start([act('zoomies', { duration: rnd(2.5, 4.5), speed: 46 }), act('idle', { duration: 2 })]);
+    }
+  }
+  walkTarget() {
+    if (this.maxX <= this.minX) return this.x;
+    const span = this.maxX - this.minX;
+    let t = rnd(this.minX, this.maxX);
+    const hop = Math.min(120 * this.scale / 3, span / 3);
+    if (Math.abs(t - this.x) < hop) t = this.x + (this.x < (this.minX + this.maxX) / 2 ? 1 : -1) * hop * 2;
+    return Math.min(Math.max(t, this.minX), this.maxX);
+  }
+}
+
+// ---- Rendering (mirrors PetView in source/Sources/main.swift) ----
+const canvas = document.getElementById('pet');
+const ctx = canvas.getContext('2d');
+const imgs = {};
+for (const [k, list] of Object.entries(SPRITES)) imgs[k] = list.map(src => { const i = new Image(); i.src = src; return i; });
+
+let scale = 3, dpr = 1;
+const brain = new Brain(0.85, window.innerWidth * 0.3);
+function layout() {
+  dpr = window.devicePixelRatio || 1;
+  scale = window.innerWidth < 520 ? 2 : 3;
+  const w = window.innerWidth, h = (H + 14) * scale;
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  canvas.style.bottom = (18 - scale) + 'px';   // outline under the paws sits on the floor line
+  brain.setBounds(W * scale / 2, w - W * scale / 2, scale);
+}
+addEventListener('resize', layout); layout();
+
+const Z = ['111', '001', '010', '100', '111'];
+let zPhase = 0;
+function draw() {
+  const ch = canvas.height / dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, ch);
+  ctx.imageSmoothingEnabled = false;
+  const frames = imgs[brain.anim]; if (!frames) return;
+  const img = frames[Math.min(brain.frame, frames.length - 1)];
+  const w = W * scale, h = H * scale;
+  const x = Math.round(brain.x - w / 2), top = ch - h;
+  // ground shadow
+  const bodyX = brain.facing > 0 ? 22 : 26;
+  ctx.fillStyle = 'rgba(51,31,20,0.16)';
+  ctx.beginPath();
+  ctx.ellipse(x + bodyX * scale, ch - scale, 11 * scale, 1.5 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // sprite + warm glow
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,242,217,0.5)'; ctx.shadowBlur = 2.5 * scale;
+  if (brain.facing < 0) { ctx.translate(x + w, 0); ctx.scale(-1, 1); ctx.drawImage(img, 0, top, w, h); }
+  else ctx.drawImage(img, x, top, w, h);
+  ctx.restore();
+  // z's
+  if (brain.asleep) {
+    const dir = brain.facing > 0 ? 1 : -1;
+    const headX = brain.facing > 0 ? x + 34 * scale : x + w - 34 * scale;
+    const px = Math.max(1, Math.round(scale * 0.8));
+    for (let k = 0; k < 3; k++) {
+      const ph = (zPhase * 0.35 + k / 3) % 1;
+      const zx = headX + dir * (ph * 9 + k) * scale;
+      const zy = ch - 17 * scale - ph * 13 * scale;
+      for (const [fill, pad] of [[`rgba(92,49,28,${0.9 * (1 - ph)})`, 1], [`rgba(252,240,214,${1 - ph})`, 0]]) {
+        ctx.fillStyle = fill;
+        Z.forEach((row, r) => [...row].forEach((c, cI) => {
+          if (c === '1') ctx.fillRect(Math.round(zx + cI * px) - pad, Math.round(zy - (4 - r) * px - px) - pad, px + 2 * pad, px + 2 * pad);
+        }));
+      }
+    }
+  }
+}
+
+// ---- Loop ----
+let lastInput = performance.now(), last = performance.now(), fast = false, awayUntil = 0;
+for (const ev of ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart', 'scroll'])
+  addEventListener(ev, () => { if (performance.now() > awayUntil) lastInput = performance.now(); }, { passive: true });
+
+const fastBtn = document.getElementById('fast');
+fastBtn.onclick = () => { fast = !fast; fastBtn.setAttribute('aria-pressed', fast); };
+// Pretend you've been away for 5+ minutes: input is ignored for 10 s while he settles down.
+// After that, your next mouse move or key press counts as coming back.
+document.getElementById('nap').onclick = () => { awayUntil = performance.now() + 10000; };
+
+const DOING = { walk: 'trotting around', idle: 'hanging out', sniff: 'sniffing something', look: 'looking at you',
+  sit: 'sitting pretty', yawn: 'yawning', stretch: 'having a big stretch', zoomies: 'doing zoomies!',
+  lie: 'lounging', sleep: 'napping', belly: 'napping belly-up' };
+const doingEl = document.getElementById('doing'), energyEl = document.getElementById('energy');
+
+function frame(now) {
+  const real = (now - last) / 1000; last = now;
+  const speed = fast ? 20 : 1;
+  const idle = now < awayUntil ? 1e6 : (now - lastInput) / 1000;
+  const d = new Date(), hour = d.getHours() + d.getMinutes() / 60;
+  // big speed-ups are fed in small steps so animation timing stays the same as the Mac app
+  let left = Math.min(real, 0.25) * speed;
+  while (left > 0) { const s = Math.min(left, 0.1); brain.tick(s, idle, hour); left -= s; }
+  zPhase += Math.min(real, 0.25);
+  draw();
+  doingEl.textContent = `Muji is ${DOING[brain.anim]}`;
+  const dots = Math.round(brain.energy * 5);
+  energyEl.textContent = '●'.repeat(dots) + '○'.repeat(5 - dots);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
