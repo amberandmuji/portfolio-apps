@@ -8,7 +8,7 @@ Before committing, set the repo's identity:
 
 ```
 git config user.name "Amber Liang"
-git config user.email "179844639+amberandmuji@users.noreply.github.com"
+git config user.email "n7enchi@gmail.com"
 ```
 
 The email is the amberandmuji account's private GitHub address, so commits are credited to amberandmuji. Don't use any other email, including the email on the Claude account.
