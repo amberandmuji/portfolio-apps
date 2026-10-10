@@ -264,6 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(energyLine)
         menu.addItem(.separator())
 
+        menu.addItem(item("Zoomies!", #selector(zoomies), key: "z"))
         showItem = item("Hide \(petName)", #selector(toggleHidden))
         menu.addItem(showItem)
 
@@ -319,6 +320,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for i in sizeItems {
             i.state = ((i.representedObject as? Double) ?? 0) == Double(scale) ? .on : .off
         }
+    }
+
+    @objc private func zoomies() {
+        brain.forceZoomies()
     }
 
     @objc private func toggleHidden() {

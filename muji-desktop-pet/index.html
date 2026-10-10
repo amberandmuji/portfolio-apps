@@ -62,6 +62,7 @@
       <li>Step away for 5 minutes and he curls up. Come back and he stretches and says hi.</li>
     </ul>
     <div class="controls">
+      <button id="zoom">Zoomies!</button>
       <button id="fast" aria-pressed="false">Speed up time ×20</button>
       <button id="nap">Pretend I left</button>
       <span class="note" style="align-self:center">then move the mouse to come back</span>
@@ -246,6 +247,18 @@ class Brain {
         return this.start([act('zoomies', { duration: rnd(2.5, 4.5), speed: 46 }), act('idle', { duration: 2 })]);
     }
   }
+  forceZoomies() {
+    const midX = (this.minX + this.maxX) / 2;
+    const run = act('zoomies', { duration: rnd(3, 5), speed: 46 }), pant = act('idle', { duration: 2 });
+    if (this.asleep || this.pending !== null) {
+      this.sleepReason = null; this.pending = null;
+      this.energy = Math.max(this.energy, 0.35);
+      this.start([act('stretch'), run, pant]);
+    } else {
+      this.start([run, pant]);
+    }
+    this.facing = this.x < midX ? 1 : -1;
+  }
   walkTarget() {
     if (this.maxX <= this.minX) return this.x;
     const span = this.maxX - this.minX;
@@ -322,6 +335,7 @@ let lastInput = performance.now(), last = performance.now(), fast = false, awayU
 for (const ev of ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart', 'scroll'])
   addEventListener(ev, () => { if (performance.now() > awayUntil) lastInput = performance.now(); }, { passive: true });
 
+document.getElementById('zoom').onclick = () => brain.forceZoomies();
 const fastBtn = document.getElementById('fast');
 fastBtn.onclick = () => { fast = !fast; fastBtn.setAttribute('aria-pressed', fast); };
 // Pretend you've been away for 5+ minutes: input is ignored for 10 s while he settles down.

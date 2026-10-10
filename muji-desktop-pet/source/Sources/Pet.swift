@@ -308,6 +308,22 @@ final class PetBrain {
         }
     }
 
+    /// Zoomies on demand (from the menu). If he's asleep or dozing off, he wakes and stretches first.
+    func forceZoomies() {
+        let midX = (minX + maxX) / 2
+        let run = Activity(anim: .zoomies, duration: Double.random(in: 3...5), speed: PetBrain.zoomSpeed)
+        let pant = Activity(anim: .idle, duration: 2)
+        if isAsleep || pendingSleep != nil {
+            sleepReason = nil
+            pendingSleep = nil
+            energy = Swift.max(energy, 0.35)
+            start([Activity(anim: .stretch), run, pant])
+        } else {
+            start([run, pant])
+        }
+        facing = x < midX ? 1 : -1      // head for the roomier side of the screen
+    }
+
     private func walkTarget() -> Double {
         guard maxX > minX else { return x }
         let span = maxX - minX
