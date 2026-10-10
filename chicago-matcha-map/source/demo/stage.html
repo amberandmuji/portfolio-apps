@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden}
+#bg{position:absolute;inset:0;background:linear-gradient(160deg,#cfe6b8 0%,#f3ead0 45%,#f6cfc6 100%);overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.75;will-change:transform}
+#b1{width:900px;height:900px;background:#a9d39a;left:-300px;top:-250px}
+#b2{width:800px;height:800px;background:#f7b9b0;right:-320px;bottom:-200px}
+#b3{width:700px;height:700px;background:#c9d6f2;right:-250px;top:380px;opacity:.6}
+#b4{width:620px;height:620px;background:#fbe3a6;left:-220px;bottom:300px;opacity:.6}
+#stage{position:absolute;left:0;top:0;width:1080px;height:1920px;transform-origin:0 0;will-change:transform}
+#phone{position:absolute;left:121px;top:75px;width:838px;height:1769px;border-radius:118px;background:linear-gradient(145deg,#3a3631,#1b1916 55%,#2c2925);
+  box-shadow:0 60px 120px -30px rgba(70,60,40,.45),0 30px 60px -20px rgba(120,80,60,.35),inset 0 0 0 3px rgba(255,255,255,.12),inset 0 0 0 9px #141210}
+#screen{position:absolute;left:19px;top:19px;width:390px;height:844px;transform:scale(2.0513);transform-origin:0 0;border-radius:49px;overflow:hidden;background:#f4ecd8}
+#screen iframe{border:0;width:390px;height:797px;display:block}
+#sbar{height:47px;background:#fbf6ea;display:flex;align-items:center;justify-content:space-between;padding:6px 28px 0 34px;box-sizing:border-box;font:600 15px -apple-system,'SF Pro Text',system-ui,sans-serif;color:#1d1a16}
+#sbar .ic{display:flex;gap:5px;align-items:center}
+#island{position:absolute;left:50%;top:38px;width:236px;height:68px;margin-left:-118px;border-radius:40px;background:#0d0c0b;z-index:5}
+#fx{position:absolute;inset:0;pointer-events:none}
+.tap{position:absolute;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%}
+#homebar{position:absolute;left:50%;bottom:28px;width:280px;height:10px;margin-left:-140px;border-radius:6px;background:rgba(40,34,28,.55);z-index:5}
+</style></head><body>
+<div id="bg"><div class="blob" id="b1"></div><div class="blob" id="b2"></div><div class="blob" id="b3"></div><div class="blob" id="b4"></div></div>
+<div id="stage"><div id="phone"><div id="screen"><div id="sbar"><span>9:41</span><span class="ic"><svg width="18" height="11" viewBox="0 0 18 11"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1d1a16"/><rect x="5" y="5" width="3" height="6" rx="1" fill="#1d1a16"/><rect x="10" y="2.5" width="3" height="8.5" rx="1" fill="#1d1a16"/><rect x="15" y="0" width="3" height="11" rx="1" fill="#1d1a16"/></svg><svg width="16" height="11" viewBox="0 0 16 11"><path d="M8 2.2c2.4 0 4.6.9 6.2 2.5l1.2-1.2C13.4 1.5 10.8.4 8 .4S2.6 1.5.6 3.5l1.2 1.2C3.4 3.1 5.6 2.2 8 2.2zm0 3.4c1.5 0 2.8.6 3.8 1.5l1.2-1.2C11.7 4.6 9.9 3.8 8 3.8s-3.7.8-5 2.1l1.2 1.2c1-.9 2.3-1.5 3.8-1.5zM8 9l1.8 1.8L8 12.6 6.2 10.8z" fill="#1d1a16"/></svg><svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="#1d1a16" opacity=".45"/><rect x="2" y="2" width="20" height="9" rx="2" fill="#1d1a16"/><rect x="25" y="4.5" width="1.6" height="4" rx=".8" fill="#1d1a16" opacity=".45"/></svg></span></div><iframe id="app" src="rec2.html"></iframe><div id="fx"></div></div><div id="island"></div><div id="homebar"></div></div></div>
+<script>
+const SCALE=2.0513, SX=121+19, SY=75+19, SBAR=47;
+function setBg(t){const a=t*0.6;
+ b1.style.transform=`translate(${Math.sin(a)*60}px,${Math.cos(a*.8)*50}px)`;
+ b2.style.transform=`translate(${Math.cos(a*.9)*-70}px,${Math.sin(a*.7)*60}px)`;
+ b3.style.transform=`translate(${Math.sin(a*.6+1)*-50}px,${Math.cos(a)*70}px)`;
+ b4.style.transform=`translate(${Math.cos(a*.7+2)*60}px,${Math.sin(a*.9)*-50}px)`;}
+function setCam(z,ox,oy){stage.style.transform=`translate(${ox}px,${oy}px) scale(${z})`}
+function setTaps(list){fx.innerHTML=list.map(p=>`<div class="tap" style="left:${p.x}px;top:${p.y}px;transform:scale(${p.s});background:rgba(255,255,255,${p.fill});box-shadow:0 0 0 ${p.ring}px rgba(255,255,255,${p.ra}),0 2px 10px rgba(0,0,0,${p.fill*.25})"></div>`).join("")}
+</script></body></html>
