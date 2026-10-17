@@ -219,7 +219,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         view.scale = s
         let ground = onDock ? screen.frame.minY : screen.visibleFrame.minY
         let height = (CGFloat(SpriteData.height) + 14) * s + jumpRoom
-        let frame = NSRect(x: screen.frame.minX, y: ground - 1 * s - jumpRoom,
+        let frame = NSRect(x: screen.frame.minX, y: ground - 1 * s,
                            width: screen.frame.width, height: height)
         if window.frame != frame {
             window.setFrame(frame, display: false)
