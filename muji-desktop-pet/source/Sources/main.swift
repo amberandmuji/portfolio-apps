@@ -35,6 +35,8 @@ final class PetView: NSView {
     let sprites: [Anim: [CGImage]]
     var scale: CGFloat = 3
     var zPhase: Double = 0
+    var jumpOffset: CGFloat = 0
+    var jumpVel: CGFloat = 0
 
     init(brain: PetBrain, sprites: [Anim: [CGImage]]) {
         self.brain = brain
@@ -46,12 +48,15 @@ final class PetView: NSView {
 
     override var isOpaque: Bool { false }
 
-    /// Where the sprite is drawn (the outline under the feet is 1 sprite-pixel above the view's bottom edge).
+    /// Where the sprite is drawn, lifted by jumpOffset when jumping.
     var spriteRect: CGRect {
         let w = CGFloat(SpriteData.width) * scale
         let h = CGFloat(SpriteData.height) * scale
-        return CGRect(x: (CGFloat(brain.x) - w / 2).rounded(), y: 0, width: w, height: h)
+        return CGRect(x: (CGFloat(brain.x) - w / 2).rounded(), y: jumpOffset, width: w, height: h)
     }
+
+    /// Hit-test region used by OverlayWindow to decide whether to intercept a click.
+    var dogHitRect: CGRect { spriteRect }
 
     /// Everything that may change between frames: sprite, glow, shadow and floating z's.
     var paintRect: CGRect {
@@ -100,7 +105,7 @@ final class PetView: NSView {
         for k in 0..<3 {
             let ph = (zPhase * 0.35 + Double(k) / 3).truncatingRemainder(dividingBy: 1)
             let zx = headX + dir * CGFloat(ph * 9 + Double(k)) * scale
-            let zy = 17 * scale + CGFloat(ph * 13) * scale
+            let zy = 17 * scale + CGFloat(ph * 13) * scale + jumpOffset
             let alpha = CGFloat(1 - ph)
             ctx.setFillColor(CGColor(srgbRed: 0.36, green: 0.19, blue: 0.11, alpha: alpha * 0.9))
             for (row, line) in glyph.enumerated() {
@@ -145,6 +150,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastLayout = 0.0
     private let defaults = UserDefaults.standard
 
+    private let jumpRoom: CGFloat = 60   // extra height above the strip so the dog can arc up
+
     private var scale: CGFloat {
         let s = defaults.double(forKey: "scale")
         return s >= 1 ? CGFloat(s) : 3
@@ -187,6 +194,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
                                                           name: NSWorkspace.didWakeNotification,
                                                           object: nil)
+
+        // Global mouse monitor: click anywhere on screen → check if it landed on Muji.
+        // Mouse events don't require accessibility permission.
+        NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
+            guard let self else { return }
+            let screenPt = NSEvent.mouseLocation
+            let windowPt = self.window.convertPoint(fromScreen: screenPt)
+            let viewPt   = self.view.convert(windowPt, from: nil)
+            if self.view.dogHitRect.contains(viewPt), self.view.jumpOffset == 0 {
+                self.view.jumpVel = 300
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) { save() }
@@ -199,8 +218,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let s = scale
         view.scale = s
         let ground = onDock ? screen.frame.minY : screen.visibleFrame.minY
-        let height = (CGFloat(SpriteData.height) + 14) * s
-        let frame = NSRect(x: screen.frame.minX, y: ground - 1 * s,
+        let height = (CGFloat(SpriteData.height) + 14) * s + jumpRoom
+        let frame = NSRect(x: screen.frame.minX, y: ground - 1 * s - jumpRoom,
                            width: screen.frame.width, height: height)
         if window.frame != frame {
             window.setFrame(frame, display: false)
@@ -229,6 +248,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let before = view.paintRect
         brain.tick(dt: dt, userIdle: idle, hour: hour)
         view.zPhase += min(max(dt, 0), 0.25)
+        if view.jumpVel != 0 || view.jumpOffset != 0 {
+            let jdt = CGFloat(min(dt, 0.1))
+            view.jumpOffset += view.jumpVel * jdt
+            view.jumpVel -= 800 * jdt
+            if view.jumpOffset <= 0 { view.jumpOffset = 0; view.jumpVel = 0 }
+        }
         if !hidden { view.setNeedsDisplay(before.union(view.paintRect)) }
 
         if now - lastLayout > 5 { lastLayout = now; layoutWindow() }   // Dock moved / resized
