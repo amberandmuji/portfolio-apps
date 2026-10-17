@@ -34,7 +34,7 @@
   .note { color: var(--muted); font-size: 14px; }
   a { color: #b45f24; }
   .floor { position: fixed; left: 0; right: 0; bottom: 0; height: 18px; background: var(--floor); border-top: 1px solid var(--line); }
-  canvas#pet { position: fixed; left: 0; bottom: 18px; pointer-events: none; image-rendering: pixelated; }
+  canvas#pet { position: fixed; left: 0; bottom: 18px; pointer-events: auto; image-rendering: pixelated; cursor: default; }
   .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   button {
     font: 600 14px Nunito, sans-serif; color: var(--ink); background: #fff8ec;
@@ -276,6 +276,7 @@ for (const [k, list] of Object.entries(SPRITES)) imgs[k] = list.map(src => { con
 
 let scale = 3, dpr = 1;
 const brain = new Brain(0.85, window.innerWidth * 0.3);
+let jumpOffset = 0, jumpVel = 0;
 function layout() {
   dpr = window.devicePixelRatio || 1;
   scale = window.innerWidth < 520 ? 2 : 3;
@@ -297,7 +298,7 @@ function draw() {
   const frames = imgs[brain.anim]; if (!frames) return;
   const img = frames[Math.min(brain.frame, frames.length - 1)];
   const w = W * scale, h = H * scale;
-  const x = Math.round(brain.x - w / 2), top = ch - h;
+  const x = Math.round(brain.x - w / 2), top = ch - h - Math.round(jumpOffset);
   // ground shadow
   const bodyX = brain.facing > 0 ? 22 : 26;
   ctx.fillStyle = 'rgba(51,31,20,0.16)';
@@ -318,7 +319,7 @@ function draw() {
     for (let k = 0; k < 3; k++) {
       const ph = (zPhase * 0.35 + k / 3) % 1;
       const zx = headX + dir * (ph * 9 + k) * scale;
-      const zy = ch - 17 * scale - ph * 13 * scale;
+      const zy = ch - 17 * scale - ph * 13 * scale - Math.round(jumpOffset);
       for (const [fill, pad] of [[`rgba(92,49,28,${0.9 * (1 - ph)})`, 1], [`rgba(252,240,214,${1 - ph})`, 0]]) {
         ctx.fillStyle = fill;
         Z.forEach((row, r) => [...row].forEach((c, cI) => {
@@ -341,6 +342,25 @@ fastBtn.onclick = () => { fast = !fast; fastBtn.setAttribute('aria-pressed', fas
 // After that, your next mouse move or key press counts as coming back.
 document.getElementById('nap').onclick = () => { awayUntil = performance.now() + 10000; };
 
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const ch = canvas.height / dpr;
+  const dogW = W * scale, dogH = H * scale;
+  if (cx >= brain.x - dogW / 2 && cx <= brain.x + dogW / 2 && cy >= ch - dogH - jumpOffset) {
+    if (jumpOffset === 0) { jumpVel = 300; lastInput = performance.now(); }
+  }
+});
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const ch = canvas.height / dpr;
+  const dogW = W * scale, dogH = H * scale;
+  canvas.style.cursor = (cx >= brain.x - dogW / 2 && cx <= brain.x + dogW / 2 && cy >= ch - dogH - jumpOffset) ? 'pointer' : 'default';
+});
+
 const DOING = { walk: 'trotting around', idle: 'hanging out', sniff: 'sniffing something', look: 'looking at you',
   sit: 'sitting pretty', yawn: 'yawning', stretch: 'having a big stretch', zoomies: 'doing zoomies!',
   lie: 'lounging', sleep: 'napping', belly: 'napping belly-up' };
@@ -348,6 +368,12 @@ const doingEl = document.getElementById('doing'), energyEl = document.getElement
 
 function frame(now) {
   const real = (now - last) / 1000; last = now;
+  if (jumpVel !== 0 || jumpOffset !== 0) {
+    const jdt = Math.min(real, 0.1);
+    jumpOffset += jumpVel * jdt;
+    jumpVel -= 800 * jdt;
+    if (jumpOffset <= 0) { jumpOffset = 0; jumpVel = 0; }
+  }
   const speed = fast ? 20 : 1;
   const idle = now < awayUntil ? 1e6 : (now - lastInput) / 1000;
   const d = new Date(), hour = d.getHours() + d.getMinutes() / 60;
