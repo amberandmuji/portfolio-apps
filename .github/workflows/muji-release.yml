@@ -1,0 +1,26 @@
+# Builds PomPet.app and uploads it to the rolling "muji" release, which install.sh downloads.
+name: Muji release
+on:
+  push:
+    branches: [main]
+    paths:
+      - "muji-desktop-pet/source/**"
+      - ".github/workflows/muji-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash muji-desktop-pet/source/build.sh
+      - run: ditto -c -k --keepParent muji-desktop-pet/source/build/PomPet.app PomPet.zip
+      # ponytail: one rolling release; the "muji" tag stays on the first build's commit. Switch to versioned tags if old builds matter.
+      - run: |
+          gh release upload muji PomPet.zip --clobber \
+            || gh release create muji PomPet.zip --title "Muji · Desktop Pom" --notes "Latest Mac build. Install: see muji-desktop-pet/README.md"
+        env:
+          GH_TOKEN: ${{ github.token }}

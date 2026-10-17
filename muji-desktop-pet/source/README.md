@@ -2,7 +2,10 @@
 
 Muji is a cosy pixel-art Pomeranian who lives along the bottom of your Mac screen.
 
-## Build & run (macOS 13+)
+## Install (macOS 13+)
+    curl -fsSL https://raw.githubusercontent.com/amberandmuji/portfolio-apps/main/muji-desktop-pet/install.sh | bash
+
+## Build & run by hand
     ./build.sh                 # needs Xcode or Command Line Tools (xcode-select --install)
     open build/PomPet.app
     mv build/PomPet.app /Applications/   # then enable "Open at Login" from the paw menu
