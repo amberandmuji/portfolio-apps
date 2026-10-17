@@ -12,7 +12,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 echo "Downloading Muji..."
-curl -fsSL -o "$tmp/PomPet.zip" https://github.com/amberandmuji/portfolio-apps/releases/download/muji/PomPet.zip
+curl -fsSL -o "$tmp/PomPet.zip" https://github.com/amberandmuji/portfolio-apps/releases/latest/download/PomPet.zip
 ditto -x -k "$tmp/PomPet.zip" "$tmp"
 
 dest=/Applications

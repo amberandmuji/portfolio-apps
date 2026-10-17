@@ -17,7 +17,7 @@ Every sprite is based on him: his deep ginger coat with the darker crown and che
   curl -fsSL https://raw.githubusercontent.com/amberandmuji/portfolio-apps/main/muji-desktop-pet/install.sh | bash
   ```
 
-  It downloads the latest build, installs him to `/Applications` and opens him. The build comes from `.github/workflows/muji-release.yml`, which rebuilds the app and updates the `muji` release whenever `source/` changes on `main`. To build by hand instead (needs Xcode or the Command Line Tools): `cd source && bash build.sh && open build/PomPet.app`. The paw menu in the menu bar has "Zoomies!" (⌘Z while the menu is open), size, hide, walk on the Dock and "Open at Login" (the installer already puts it in /Applications).
+  It downloads the latest build, installs him to `/Applications` and opens him. Releases are semantically versioned: pushing a tag like `muji-v1.2.3` runs `.github/workflows/muji-release.yml`, which builds the app with that version and publishes it as the latest release. `.github/workflows/muji-ci.yml` checks that the app compiles on every PR that touches `source/`. To build by hand instead (needs Xcode or the Command Line Tools): `cd source && bash build.sh && open build/PomPet.app`. The paw menu in the menu bar has "Zoomies!" (⌘Z while the menu is open), size, hide, walk on the Dock and "Open at Login" (the installer already puts it in /Applications).
 - **Demo:** `demo.mp4`, a 20-second clip of Muji's day: walking, sniffing, saying hi, yawning, napping belly-up, stretching and zoomies.
 - **Source:** `source/` (Swift + AppKit, no Xcode project needed).
   - `Sources/Pet.swift`: the behaviour state machine (energy, time of day, away/back).

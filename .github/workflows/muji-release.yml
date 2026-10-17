@@ -1,26 +1,26 @@
-# Builds PomPet.app and uploads it to the rolling "muji" release, which install.sh downloads.
+# Push a semver tag (git tag muji-v1.2.3 && git push origin muji-v1.2.3) to build PomPet.app
+# and publish it as the "latest" release, which install.sh downloads.
 name: Muji release
 on:
   push:
-    branches: [main]
-    paths:
-      - "muji-desktop-pet/source/**"
-      - ".github/workflows/muji-release.yml"
-  workflow_dispatch:
+    tags: ["muji-v[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  release:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      - name: Stamp version from tag
+        run: |
+          version="${GITHUB_REF_NAME#muji-v}"
+          plutil -replace CFBundleShortVersionString -string "$version" muji-desktop-pet/source/Info.plist
+          plutil -replace CFBundleVersion -string "$version" muji-desktop-pet/source/Info.plist
       - run: bash muji-desktop-pet/source/build.sh
       - run: ditto -c -k --keepParent muji-desktop-pet/source/build/PomPet.app PomPet.zip
-      # ponytail: one rolling release; the "muji" tag stays on the first build's commit. Switch to versioned tags if old builds matter.
-      - run: |
-          gh release upload muji PomPet.zip --clobber \
-            || gh release create muji PomPet.zip --title "Muji · Desktop Pom" --notes "Latest Mac build. Install: see muji-desktop-pet/README.md"
+      # ponytail: install.sh uses the repo-wide "latest" release; if another app ever publishes releases, give it --latest=false.
+      - run: gh release create "$GITHUB_REF_NAME" PomPet.zip --latest --title "Muji ${GITHUB_REF_NAME#muji-}" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

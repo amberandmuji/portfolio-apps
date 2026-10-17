@@ -1,0 +1,19 @@
+# Checks that the Muji Mac app still compiles.
+name: Muji CI
+on:
+  pull_request:
+    paths:
+      - "muji-desktop-pet/source/**"
+      - ".github/workflows/muji-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "muji-desktop-pet/source/**"
+      - ".github/workflows/muji-ci.yml"
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash muji-desktop-pet/source/build.sh
