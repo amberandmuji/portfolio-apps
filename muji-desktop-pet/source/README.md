@@ -23,3 +23,8 @@ Status + energy - Zoomies! - Hide/Show - Size (Small/Medium/Large) - Walk on Top
 - Name: `petName` at the top of `Sources/main.swift`.
 - Behaviour/timings: `Sources/Pet.swift` (speeds, energy rates, nap rules).
 - Art: edit `tools/sprites.py`, then `python3 tools/export_sprites.py && ./build.sh`.
+
+## If Muji goes missing
+"Show Muji" in the paw menu always puts him back on the bottom of your main display. The app also checks every few seconds and restores his window if macOS takes it off screen (after sleep or display changes). To see what happened, run:
+
+    log show --last 1d --info --predicate 'subsystem == "local.pompet.app"'
