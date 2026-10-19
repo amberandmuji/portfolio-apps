@@ -3,8 +3,12 @@
 import AppKit
 import ImageIO
 import ServiceManagement
+import os
 
 let petName = "Muji"   // <- rename your pup here
+
+/// Read with:  log show --last 1d --info --predicate 'subsystem == "local.pompet.app"'
+let petLog = Logger(subsystem: "local.pompet.app", category: "window")
 
 // MARK: - Sprites
 
@@ -181,6 +185,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.contentView = view
         layoutWindow()
         setupMenu()
+        let startHidden = hidden, screens = Self.describeScreens()
+        petLog.info("launch: hidden=\(startHidden, privacy: .public) screens=\(screens, privacy: .public)")
         if !hidden { window.orderFrontRegardless() }
 
         let t = Timer(timeInterval: 1.0 / 30.0, target: self, selector: #selector(tick),
@@ -222,6 +228,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let frame = NSRect(x: screen.frame.minX, y: ground - 1 * s,
                            width: screen.frame.width, height: height)
         if window.frame != frame {
+            let from = String(describing: window.frame), to = String(describing: frame)
+            petLog.info("layout: window \(from, privacy: .public) -> \(to, privacy: .public)")
             window.setFrame(frame, display: false)
             view.needsDisplay = true
         }
@@ -229,9 +237,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         brain.setBounds(min: half, max: Double(frame.width) - half, scale: Double(s))
     }
 
-    @objc private func screensChanged() { layoutWindow() }
+    /// Self-heal: if he's meant to be shown but macOS has taken his window off screen
+    /// (sleep, display changes, Spaces), put it back.
+    private func ensureVisible() {
+        guard !hidden, !window.isVisible else { return }
+        petLog.error("window was off screen while shown; restoring")
+        window.orderFrontRegardless()
+        view.needsDisplay = true
+    }
 
-    @objc private func didWake() { lastTick = ProcessInfo.processInfo.systemUptime }
+    @objc private func screensChanged() {
+        let screens = Self.describeScreens()
+        petLog.info("screens changed: \(screens, privacy: .public)")
+        layoutWindow()
+        ensureVisible()
+    }
+
+    @objc private func didWake() {
+        let visible = window.isVisible, isHidden = hidden
+        petLog.info("mac woke; window visible=\(visible, privacy: .public) hidden=\(isHidden, privacy: .public)")
+        lastTick = ProcessInfo.processInfo.systemUptime
+        layoutWindow()
+        ensureVisible()
+    }
+
+    private static func describeScreens() -> String {
+        NSScreen.screens.map { String(describing: $0.frame) }.joined(separator: ", ")
+    }
 
     // MARK: Loop
 
@@ -256,7 +288,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         if !hidden { view.setNeedsDisplay(before.union(view.paintRect)) }
 
-        if now - lastLayout > 5 { lastLayout = now; layoutWindow() }   // Dock moved / resized
+        if now - lastLayout > 5 { lastLayout = now; layoutWindow(); ensureVisible() }   // Dock moved, window lost
         if now - lastSave > 30 { lastSave = now; save() }
     }
 
@@ -290,7 +322,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
 
         menu.addItem(item("Zoomies!", #selector(zoomies), key: "z"))
-        showItem = item("Hide \(petName)", #selector(toggleHidden))
+        showItem = item("Hide \(petName)", #selector(hidePet))
         menu.addItem(showItem)
 
         let sizeMenu = NSMenu()
@@ -339,7 +371,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusLine.title = "\(petName) is \(doing)"
         let dots = Int((brain.energy * 5).rounded())
         energyLine.title = "Energy  " + String(repeating: "●", count: dots) + String(repeating: "○", count: 5 - dots)
-        showItem.title = hidden ? "Show \(petName)" : "Hide \(petName)"
+        // Label and action follow what's actually on screen, not just the saved flag.
+        let onScreen = window.isVisible
+        showItem.title = onScreen ? "Hide \(petName)" : "Show \(petName)"
+        showItem.action = onScreen ? #selector(hidePet) : #selector(showPet)
         dockItem.state = onDock ? .on : .off
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         for i in sizeItems {
@@ -351,9 +386,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         brain.forceZoomies()
     }
 
-    @objc private func toggleHidden() {
-        defaults.set(!hidden, forKey: "hidden")
-        if hidden { window.orderOut(nil) } else { window.orderFrontRegardless(); view.needsDisplay = true }
+    @objc private func showPet() { setHidden(false) }
+    @objc private func hidePet() { setHidden(true) }
+
+    /// Explicit (never a toggle), so a repeated or stale click can't do the opposite of its label.
+    private func setHidden(_ hide: Bool) {
+        defaults.set(hide, forKey: "hidden")
+        if hide {
+            window.orderOut(nil)
+        } else {
+            layoutWindow()                      // back onto the main display's bottom edge
+            window.orderFrontRegardless()
+            view.needsDisplay = true
+        }
+        let action = hide ? "hide" : "show", visible = window.isVisible, where_ = String(describing: window.frame)
+        petLog.info("\(action, privacy: .public): window visible=\(visible, privacy: .public) frame=\(where_, privacy: .public)")
     }
 
     @objc private func setSize(_ sender: NSMenuItem) {
